@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhutan Smart Farmer App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .container {
+            max-width: 900px;
+            padding: 2rem;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .month-card {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .month-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.15);
+        }
+        .month-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.5rem 0 0 0;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.25rem;
+            color: #4a5568;
+        }
+        .task-item::before {
+            content: '•';
+            color: #38a169;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .response-container {
+            min-height: 200px;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        .info-panel {
+            background-color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .calendar-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 480px) {
+            .calendar-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="container bg-white rounded-lg shadow-xl p-8 max-w-4xl mx-auto">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-2">Bhutan Smart Farmer</h1>
+        <p class="text-center text-gray-500 mb-8">Your digital guide to a successful harvest.</p>
+
+        <div class="info-panel">
+            <p class="text-sm text-gray-700">
+                This tool provides agricultural guidance tailored to Bhutan's diverse regions and climates.
+                Enter your location (e.g., "Thimphu") and a specific crop or livestock (e.g., "rice" or "yak") to get a detailed calendar.
+            </p>
+        </div>
+
+        <form id="planForm" class="flex flex-col sm:flex-row gap-4 mb-6" autocomplete="off">
+            <input id="locationInput" type="text" placeholder="Enter your location (e.g., Paro)" aria-label="Location" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
+            <input id="queryInput" type="text" placeholder="What are you planting/raising? (e.g., paddy rice)" aria-label="Crop or Livestock" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
+            <button id="generateBtn" type="submit" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Generate Plan
+            </button>
+        </form>
+
+        <div id="loading" class="flex justify-center items-center py-8 hidden" role="status" aria-live="polite">
+            <div class="loading-spinner"></div>
+            <span class="ml-4 text-gray-600">Generating your plan...</span>
+        </div>
+        
+        <div id="responseContainer" class="response-container mt-8 hidden" tabindex="-1">
+            <h2 id="planTitle" class="text-2xl font-bold text-gray-800 mb-4"></h2>
+            <div id="output" class="text-gray-700"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        const locationInput = document.getElementById('locationInput');
+        const queryInput = document.getElementById('queryInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingDiv = document.getElementById('loading');
+        const responseContainer = document.getElementById('responseContainer');
+        const outputDiv = document.getElementById('output');
+        const planTitle = document.getElementById('planTitle');
+        const planForm = document.getElementById('planForm');
+
+        // Save last query in localStorage for convenience
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('location')) locationInput.value = localStorage.getItem('location');
+            if (localStorage.getItem('query')) queryInput.value = localStorage.getItem('query');
+        });
+
+        planForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            generatePlan();
+        });
+
+        async function generatePlan() {
+            const location = locationInput.value.trim();
+            const query = queryInput.value.trim();
+
+            if (!location || !query) {
+                renderErrorMessage("Please enter both a location and what you are planting or raising.");
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('location', location);
+            localStorage.setItem('query', query);
+
+            loadingDiv.classList.remove('hidden');
+            responseContainer.classList.add('hidden');
+            outputDiv.innerHTML = '';
+            generateBtn.disabled = true;
+
+            const systemPrompt = `You are an expert agricultural consultant for Bhutan. Your task is to provide a detailed, month-by-month agricultural calendar for the specified location, crop, or livestock. The response must be a single JSON object. The object must have a "title" field, a "description" field, and a "calendar" array. Each object in the "calendar" array must have a "month" field and a "tasks" array of strings. The tasks should be specific, practical actions related to farming in Bhutan, like "Land preparation for paddy fields," "Harvesting rice," or "Vaccination of yaks." Focus on crops and livestock known to thrive in Bhutan's agro-climatic zones. Do not include any information outside of the JSON.`;
+            const userQuery = `What is the monthly farming calendar for ${query} in ${location} in Bhutan?`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "title": { "type": "STRING", "description": "A title for the plan." },
+                            "description": { "type": "STRING", "description": "A brief description of the plan." },
+                            "calendar": {
+                                "type": "ARRAY",
+                                "items": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "month": { "type": "STRING" },
+                                        "tasks": {
+                                            "type": "ARRAY",
+                                            "items": { "type": "STRING" }
+                                        }
+                                    },
+                                    "propertyOrdering": ["month", "tasks"]
+                                }
+                            }
+                        },
+                        "propertyOrdering": ["title", "description", "calendar"]
+                    }
+                }
+            };
+            
+            const apiKey = "AIzaSyCKPT8RRIYq0-y030f47GVhQLEaDVloco0";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                let response = await fetchWithExponentialBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    try {
+                        const data = JSON.parse(jsonString);
+                        renderPlan(data);
+                    } catch (err) {
+                        renderErrorMessage("Received invalid data format. Please try again.");
+                    }
+                } else {
+                    renderErrorMessage("Sorry, I couldn't generate a plan based on that information. Please try a different query.");
+                }
+            } catch (error) {
+                console.error("API call failed:", error);
+                renderErrorMessage("An error occurred. Please check your network connection and try again.");
+            } finally {
+                loadingDiv.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        }
+
+        function renderPlan(data) {
+            planTitle.textContent = data.title;
+            outputDiv.innerHTML = `
+                <p class="mb-4 text-gray-600 text-sm italic">${data.description}</p>
+                <div class="calendar-grid">
+                    ${data.calendar.map(monthData => `
+                        <div class="month-card">
+                            <h3 class="month-header">${monthData.month}</h3>
+                            <ul class="task-list">
+                                ${monthData.tasks.map(task => `<li class="task-item">${task}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            responseContainer.classList.remove('hidden');
+            responseContainer.focus();
+        }
+
+        function renderErrorMessage(message) {
+            planTitle.textContent = "Oops!";
+            outputDiv.innerHTML = `<p class="text-red-500 font-medium">${message}</p>`;
+            responseContainer.classList.remove('hidden');
+            responseContainer.focus();
+        }
+
+        async function fetchWithExponentialBackoff(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        return response;
+                    }
+                    if (response.status === 429) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
