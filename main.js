@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const state = {
-        apiKey: "", // IMPORTANT: User must fill this in
+        apiKey: "AIzaSyCKPT8RRIYq0-y030f47GVhQLEaDVloco0", // IMPORTANT: User must fill this in
         currentTheme: localStorage.getItem('theme') || 'light-mode'
     };
 
@@ -302,3 +302,4 @@ Ensure recommendations are scientifically sound and acknowledge limitations.`;
 
     init();
 });
+
