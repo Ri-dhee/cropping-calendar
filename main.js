@@ -1,5 +1,7 @@
 // assets/main.js
 
+import { InputValidationSystem } from './input-validation.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const ui = {
         locationInput: document.getElementById('locationInput'),
@@ -21,10 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTheme: localStorage.getItem('theme') || 'light-mode'
     };
 
+    // Initialize input validation system
+    const inputValidation = new InputValidationSystem();
+    window.inputValidation = inputValidation; // Make available globally for onclick handlers
+
     function init() {
         loadState();
         applyTheme(state.currentTheme);
         addEventListeners();
+        inputValidation.initialize(); // Initialize the validation system
         checkApiKey();
     }
 
@@ -55,6 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.locationInput.value = '';
             ui.queryInput.value = '';
             ui.responseContainer.classList.add('hidden');
+            
+            // Clear validation alerts
+            const validationAlerts = document.getElementById('validationAlerts');
+            if (validationAlerts) {
+                validationAlerts.classList.add('hidden');
+            }
+            
             localStorage.removeItem('location');
             localStorage.removeItem('query');
         });

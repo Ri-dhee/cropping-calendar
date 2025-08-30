@@ -12,12 +12,20 @@ export class AgriculturalValidator {
         this.cropAltitudeMap = {
             'rice': { min: 200, max: 2800, optimal: [600, 2000], zone: 'subtropical' },
             'paddy': { min: 200, max: 2800, optimal: [600, 2000], zone: 'subtropical' },
+            'paddy rice': { min: 200, max: 2800, optimal: [600, 2000], zone: 'subtropical' },
             'barley': { min: 2000, max: 4500, optimal: [2500, 4000], zone: 'temperate' },
             'potato': { min: 1500, max: 4000, optimal: [2000, 3500], zone: 'temperate' },
             'maize': { min: 300, max: 2500, optimal: [600, 2000], zone: 'subtropical' },
             'wheat': { min: 1000, max: 3500, optimal: [1500, 3000], zone: 'temperate' },
             'buckwheat': { min: 2000, max: 4200, optimal: [2200, 3800], zone: 'temperate' },
             'millet': { min: 400, max: 2200, optimal: [600, 1800], zone: 'subtropical' },
+            'apple': { min: 1800, max: 3500, optimal: [2000, 3000], zone: 'temperate' },
+            'orange': { min: 200, max: 1500, optimal: [300, 1200], zone: 'subtropical' },
+            'citrus': { min: 200, max: 1500, optimal: [300, 1200], zone: 'subtropical' },
+            'mustard': { min: 1500, max: 3500, optimal: [2000, 3000], zone: 'temperate' },
+            'cabbage': { min: 1000, max: 3000, optimal: [1500, 2500], zone: 'temperate' },
+            'tomato': { min: 800, max: 2500, optimal: [1000, 2000], zone: 'subtropical' },
+            'chili': { min: 600, max: 2200, optimal: [800, 1800], zone: 'subtropical' },
             'yak': { min: 3500, max: 5500, optimal: [4000, 5000], zone: 'alpine' },
             'cattle': { min: 200, max: 3000, optimal: [600, 2500], zone: 'subtropical' }
         };
@@ -25,10 +33,18 @@ export class AgriculturalValidator {
         this.seasonalPatterns = {
             'rice': { planting: [5, 6], harvesting: [9, 10] },
             'paddy': { planting: [5, 6], harvesting: [9, 10] },
+            'paddy rice': { planting: [5, 6], harvesting: [9, 10] },
             'barley': { planting: [10, 11], harvesting: [6, 7] },
             'potato': { planting: [3, 4, 8], harvesting: [6, 7, 11] },
             'maize': { planting: [4, 5], harvesting: [8, 9] },
-            'wheat': { planting: [10, 11], harvesting: [5, 6] }
+            'wheat': { planting: [10, 11], harvesting: [5, 6] },
+            'apple': { planting: [3, 4], harvesting: [9, 10, 11] },
+            'orange': { planting: [3, 4], harvesting: [11, 12, 1] },
+            'citrus': { planting: [3, 4], harvesting: [11, 12, 1] },
+            'mustard': { planting: [10, 11], harvesting: [3, 4] },
+            'cabbage': { planting: [3, 4, 9, 10], harvesting: [6, 7, 12, 1] },
+            'tomato': { planting: [3, 4], harvesting: [7, 8, 9] },
+            'chili': { planting: [3, 4], harvesting: [8, 9, 10] }
         };
 
         this.locationAltitudes = {
@@ -37,6 +53,8 @@ export class AgriculturalValidator {
             'punakha': 1200,
             'wangdue': 1300,
             'bumthang': 2600,
+            'phobjikha': 2900,
+            'phobjikha valley': 2900,
             'mongar': 1600,
             'trashigang': 1070,
             'samtse': 300,
@@ -67,7 +85,8 @@ export class AgriculturalValidator {
                 valid: false,
                 confidence: 0.3,
                 message: `Limited data available for ${crop}. Recommendations are general and may not be optimal.`,
-                suggestions: ['Consult local agricultural extension services', 'Consider traditional varieties']
+                suggestions: this.getSuggestedCrops(normalizedLocation),
+                alternativeMessage: `Consider these crops that are well-suited for ${location}:`
             };
         }
 
@@ -84,11 +103,13 @@ export class AgriculturalValidator {
         const isOptimal = locationAltitude >= cropData.optimal[0] && locationAltitude <= cropData.optimal[1];
 
         if (!isInRange) {
+            const suitableCrops = this.getSuggestedCrops(normalizedLocation);
             return {
                 valid: false,
                 confidence: 0.2,
                 message: `${crop} may not be suitable for ${location} (${locationAltitude}m altitude). Outside recommended range of ${cropData.min}-${cropData.max}m.`,
-                suggestions: ['Consider alternative crops suitable for this altitude', 'Explore protected cultivation methods']
+                suggestions: suitableCrops,
+                alternativeMessage: `Consider these crops that are better suited for ${location}'s altitude (${locationAltitude}m):`
             };
         }
 
@@ -106,6 +127,104 @@ export class AgriculturalValidator {
             confidence: 0.7,
             message: `Good compatibility: ${crop} can be grown in ${location} (${locationAltitude}m) with proper management.`,
             suggestions: ['Monitor for altitude-related stress', 'Consider improved varieties']
+        };
+    }
+
+    // New method: Get crop suggestions based on location altitude
+    getSuggestedCrops(location) {
+        const normalizedLocation = location.toLowerCase().trim();
+        const locationAltitude = this.locationAltitudes[normalizedLocation];
+        
+        if (!locationAltitude) return [];
+        
+        const suitableCrops = [];
+        for (const [crop, data] of Object.entries(this.cropAltitudeMap)) {
+            if (locationAltitude >= data.optimal[0] && locationAltitude <= data.optimal[1]) {
+                suitableCrops.push(crop);
+            }
+        }
+        
+        return suitableCrops.slice(0, 4); // Return top 4 suggestions
+    }
+
+    // New method: Fuzzy search for location suggestions
+    getLocationSuggestions(input) {
+        if (!input || input.length < 2) return [];
+        
+        const normalizedInput = input.toLowerCase().trim();
+        const locations = Object.keys(this.locationAltitudes);
+        
+        return locations
+            .filter(location => location.includes(normalizedInput))
+            .slice(0, 5)
+            .map(location => ({
+                name: location,
+                altitude: this.locationAltitudes[location],
+                displayName: this.formatLocationName(location)
+            }));
+    }
+
+    // New method: Fuzzy search for crop suggestions
+    getCropSuggestions(input) {
+        if (!input || input.length < 2) return [];
+        
+        const normalizedInput = input.toLowerCase().trim();
+        const crops = Object.keys(this.cropAltitudeMap);
+        
+        return crops
+            .filter(crop => crop.includes(normalizedInput))
+            .slice(0, 5)
+            .map(crop => ({
+                name: crop,
+                zone: this.cropAltitudeMap[crop].zone,
+                displayName: this.formatCropName(crop)
+            }));
+    }
+
+    // New method: Format location name for display
+    formatLocationName(location) {
+        return location.split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    // New method: Format crop name for display
+    formatCropName(crop) {
+        return crop.split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    // New method: Real-time validation with contextual alerts
+    validateInputCombination(crop, location) {
+        if (!crop || !location) {
+            return { valid: true, alerts: [] };
+        }
+
+        const validation = this.validateCropLocationCompatibility(crop, location);
+        const alerts = [];
+
+        if (!validation.valid) {
+            alerts.push({
+                type: 'warning',
+                title: 'Compatibility Warning',
+                message: validation.message,
+                suggestions: validation.suggestions,
+                alternativeMessage: validation.alternativeMessage
+            });
+        } else if (validation.confidence < 0.8) {
+            alerts.push({
+                type: 'info',
+                title: 'Advisory',
+                message: validation.message,
+                suggestions: validation.suggestions
+            });
+        }
+
+        return {
+            valid: validation.valid,
+            confidence: validation.confidence,
+            alerts: alerts
         };
     }
 
@@ -195,4 +314,20 @@ export function validateAgriculturalData(crop, location) {
 export function enhanceDataReliability(data) {
     const validator = new AgriculturalValidator();
     return validator.addReliabilityIndicators(data);
+}
+
+// New export functions for suggestion system
+export function getLocationSuggestions(input) {
+    const validator = new AgriculturalValidator();
+    return validator.getLocationSuggestions(input);
+}
+
+export function getCropSuggestions(input) {
+    const validator = new AgriculturalValidator();
+    return validator.getCropSuggestions(input);
+}
+
+export function validateInputCombination(crop, location) {
+    const validator = new AgriculturalValidator();
+    return validator.validateInputCombination(crop, location);
 }
