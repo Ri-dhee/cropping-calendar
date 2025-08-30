@@ -23,6 +23,75 @@
             gap: 1rem;
             margin-top: 1rem;
         }
+        .input-container {
+            position: relative;
+            flex: 1;
+        }
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .suggestion-item {
+            padding: 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f7fafc;
+            transition: background-color 0.2s;
+        }
+        .suggestion-item:hover,
+        .suggestion-item.selected {
+            background-color: #edf2f7;
+        }
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        .validation-alert {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid;
+        }
+        .validation-alert.warning {
+            background-color: #fef5e7;
+            border-color: #f6ad55;
+            color: #744210;
+        }
+        .validation-alert.info {
+            background-color: #ebf8ff;
+            border-color: #4299e1;
+            color: #2a69ac;
+        }
+        .alert-suggestions {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .alert-suggestions .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .suggestion-chip {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .suggestion-chip:hover {
+            background-color: rgba(255, 255, 255, 1);
+        }
         .month-card {
             background-color: #fff;
             border-radius: 0.5rem;
@@ -119,12 +188,21 @@
         </div>
 
         <form id="planForm" class="flex flex-col sm:flex-row gap-4 mb-6" autocomplete="off">
-            <input id="locationInput" type="text" placeholder="Enter your location (e.g., Paro)" aria-label="Location" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
-            <input id="queryInput" type="text" placeholder="What are you planting/raising? (e.g., paddy rice)" aria-label="Crop or Livestock" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
-            <button id="generateBtn" type="submit" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="input-container">
+                <input id="locationInput" type="text" placeholder="Enter your location (e.g., Paro)" aria-label="Location" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
+                <div id="locationSuggestions" class="suggestions-dropdown hidden"></div>
+            </div>
+            <div class="input-container">
+                <input id="queryInput" type="text" placeholder="What are you planting/raising? (e.g., paddy rice)" aria-label="Crop or Livestock" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" required>
+                <div id="cropSuggestions" class="suggestions-dropdown hidden"></div>
+            </div>
+            <button id="generateBtn" type="submit" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                 Generate Plan
             </button>
         </form>
+
+        <!-- Validation Alerts Container -->
+        <div id="validationAlerts" class="hidden"></div>
 
         <div id="loading" class="flex justify-center items-center py-8 hidden" role="status" aria-live="polite">
             <div class="loading-spinner"></div>
@@ -132,235 +210,31 @@
         </div>
         
         <div id="responseContainer" class="response-container mt-8 hidden" tabindex="-1">
-            <h2 id="planTitle" class="text-2xl font-bold text-gray-800 mb-4"></h2>
+            <div class="flex justify-between items-start mb-4">
+                <h2 id="planTitle" class="text-2xl font-bold text-gray-800"></h2>
+                <div class="flex gap-2">
+                    <button id="copyBtn" class="text-gray-400 hover:text-gray-600 transition-colors p-2" title="Copy plan to clipboard">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                    <button id="clearBtn" class="text-gray-400 hover:text-gray-600 transition-colors p-2" title="Clear form">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                    <button id="themeSwitcher" class="text-gray-400 hover:text-gray-600 transition-colors p-2" title="Toggle theme">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <p id="planDescription" class="text-gray-600 mb-4"></p>
             <div id="output" class="text-gray-700"></div>
         </div>
     </div>
 
-    <script>
-        // Mock enhanced response for demonstration
-        const mockEnhancedResponse = {
-            "title": "Research-Based Rice Cultivation Calendar for Paro, Bhutan",
-            "description": "Evidence-based agricultural calendar for rice cultivation in Paro district, considering local climate conditions, altitude (2200m), and traditional farming practices validated against scientific research.",
-            "confidence": 0.85,
-            "sources": [
-                "Ministry of Agriculture and Livestock, Bhutan - Rice Production Guidelines",
-                "Royal University of Bhutan - CNR Agricultural Research", 
-                "Traditional Bhutanese Farming Calendar (validated)",
-                "FAO - Climate-Smart Agriculture for Bhutan"
-            ],
-            "climate_zone": "Temperate (2000-4000m altitude)",
-            "calendar": [
-                {
-                    "month": "January",
-                    "tasks": [
-                        "Plan rice variety selection based on altitude and climate",
-                        "Prepare nursery beds with proper drainage",
-                        "Collect and treat seeds for disease prevention",
-                        "Maintenance of irrigation channels and water sources"
-                    ],
-                    "confidence": 0.9,
-                    "notes": "Winter preparation phase - critical for successful cultivation at 2200m altitude"
-                },
-                {
-                    "month": "February", 
-                    "tasks": [
-                        "Continue nursery preparation and soil testing",
-                        "Apply organic compost to nursery beds",
-                        "Repair agricultural tools and equipment",
-                        "Attend agricultural extension training sessions"
-                    ],
-                    "confidence": 0.85,
-                    "notes": "Pre-planting preparation continues - soil temperature still too low for direct seeding"
-                },
-                {
-                    "month": "March",
-                    "tasks": [
-                        "Begin land preparation - plowing and leveling",
-                        "Apply base fertilizers and organic matter",
-                        "Prepare main field irrigation systems",
-                        "Start seed soaking and germination testing"
-                    ],
-                    "confidence": 0.9,
-                    "notes": "Critical month for field preparation in temperate zones"
-                },
-                {
-                    "month": "April",
-                    "tasks": [
-                        "Sow rice seeds in prepared nursery beds",
-                        "Continue field preparation and puddling",
-                        "Monitor soil temperature and moisture",
-                        "Apply pre-emergence fertilizers"
-                    ],
-                    "confidence": 0.95,
-                    "notes": "Optimal nursery establishment period for Paro's climate conditions"
-                },
-                {
-                    "month": "May",
-                    "tasks": [
-                        "Transplant rice seedlings to main fields",
-                        "Maintain proper water levels (2-5cm depth)",
-                        "Begin regular weeding and monitoring",
-                        "Apply first split of nitrogen fertilizer"
-                    ],
-                    "confidence": 0.95,
-                    "notes": "Peak transplanting season - timing critical for yield optimization"
-                },
-                {
-                    "month": "June",
-                    "tasks": [
-                        "Continue transplanting (early varieties)",
-                        "Implement integrated pest management",
-                        "Regular field monitoring for diseases", 
-                        "Maintain irrigation water management"
-                    ],
-                    "confidence": 0.9,
-                    "notes": "Monsoon onset - drainage management becomes crucial"
-                }
-            ],
-            "disclaimers": [
-                "Recommendations are based on general climatic conditions for Paro district at 2200m altitude",
-                "Local microclimate variations may require adjustments to timing and practices",
-                "Always consult with local agricultural extension officers for site-specific guidance"
-            ]
-        };
-        
-        const locationInput = document.getElementById('locationInput');
-        const queryInput = document.getElementById('queryInput');
-        const generateBtn = document.getElementById('generateBtn');
-        const loadingDiv = document.getElementById('loading');
-        const responseContainer = document.getElementById('responseContainer');
-        const outputDiv = document.getElementById('output');
-        const planTitle = document.getElementById('planTitle');
-        const planForm = document.getElementById('planForm');
-
-        // Save last query in localStorage for convenience
-        window.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('location')) locationInput.value = localStorage.getItem('location');
-            if (localStorage.getItem('query')) queryInput.value = localStorage.getItem('query');
-        });
-
-        planForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            generatePlan();
-        });
-
-        async function generatePlan() {
-            const location = locationInput.value.trim();
-            const query = queryInput.value.trim();
-
-            if (!location || !query) {
-                renderErrorMessage("Please enter both a location and what you are planting or raising.");
-                return;
-            }
-
-            // Save to localStorage
-            localStorage.setItem('location', location);
-            localStorage.setItem('query', query);
-
-            loadingDiv.classList.remove('hidden');
-            responseContainer.classList.add('hidden');
-            outputDiv.innerHTML = '';
-            generateBtn.disabled = true;
-
-            try {
-                // Use mock data for demonstration
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
-                const data = { ...mockEnhancedResponse };
-                data.title = `Research-Based ${query.charAt(0).toUpperCase() + query.slice(1)} Cultivation Calendar for ${location}, Bhutan`;
-                data.description = data.description.replace('rice', query).replace('Paro', location);
-                renderPlan(data);
-            } catch (error) {
-                console.error("Generation failed:", error);
-                renderErrorMessage("An error occurred while generating the plan. Please try again.");
-            } finally {
-                loadingDiv.classList.add('hidden');
-                generateBtn.disabled = false;
-            }
-        }
-
-        function renderPlan(data) {
-            planTitle.textContent = data.title;
-            
-            // Create confidence indicator
-            const confidencePercentage = Math.round((data.confidence || 0.8) * 100);
-            const confidenceColor = data.confidence >= 0.8 ? 'text-green-600' : data.confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600';
-            
-            outputDiv.innerHTML = `
-                <div class="mb-6">
-                    <p class="mb-2 text-gray-600 text-sm italic">${data.description}</p>
-                    
-                    <div class="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm font-semibold text-blue-800">Research-Based Information</p>
-                                <p class="text-xs text-blue-600">Climate Zone: ${data.climate_zone || 'Not specified'}</p>
-                            </div>
-                            <span class="text-sm font-bold ${confidenceColor}">
-                                Confidence: ${confidencePercentage}%
-                            </span>
-                        </div>
-                    </div>
-
-                    ${data.sources && data.sources.length > 0 ? `
-                        <div class="mb-4">
-                            <p class="text-xs font-semibold text-gray-700 mb-1">Sources Referenced:</p>
-                            <ul class="text-xs text-gray-600 list-disc list-inside">
-                                ${data.sources.map(source => `<li>${source}</li>`).join('')}
-                            </ul>
-                        </div>
-                    ` : ''}
-                </div>
-
-                <div class="calendar-grid">
-                    ${data.calendar.map(monthData => {
-                        const monthConfidence = Math.round((monthData.confidence || 0.8) * 100);
-                        const monthConfidenceColor = monthData.confidence >= 0.8 ? 'text-green-600' : 
-                                                   monthData.confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600';
-                        
-                        return `
-                            <div class="month-card">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h3 class="month-header">${monthData.month}</h3>
-                                    <span class="text-xs font-semibold ${monthConfidenceColor}">
-                                        ${monthConfidence}%
-                                    </span>
-                                </div>
-                                <ul class="task-list">
-                                    ${monthData.tasks.map(task => `<li class="task-item">${task}</li>`).join('')}
-                                </ul>
-                                ${monthData.notes ? `
-                                    <div class="mt-3 pt-2 border-t border-gray-200">
-                                        <p class="text-xs text-gray-500 italic">${monthData.notes}</p>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-
-                ${data.disclaimers && data.disclaimers.length > 0 ? `
-                    <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                        <h4 class="text-sm font-semibold text-yellow-800 mb-2">Important Disclaimers:</h4>
-                        <ul class="text-sm text-yellow-700 list-disc list-inside space-y-1">
-                            ${data.disclaimers.map(disclaimer => `<li>${disclaimer}</li>`).join('')}
-                        </ul>
-                        <p class="text-xs text-yellow-600 mt-2 font-medium">
-                            Always consult with local agricultural extension officers and experienced farmers in your area.
-                        </p>
-                    </div>
-                ` : ''}
-            `;
-            responseContainer.classList.remove('hidden');
-            responseContainer.focus();
-        }
-
-        function renderErrorMessage(message) {
-            planTitle.textContent = "Oops!";
-            outputDiv.innerHTML = `<p class="text-red-500 font-medium">${message}</p>`;
-            responseContainer.classList.remove('hidden');
-            responseContainer.focus();
-        }
-    </script>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
